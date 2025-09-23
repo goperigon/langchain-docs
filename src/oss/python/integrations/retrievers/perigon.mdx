@@ -1,0 +1,289 @@
+---
+title: Perigon
+---
+
+The Perigon API suite provides fast, structured access to global news and events, helping you build real-time, data-driven products. Whether you're tracking emerging risks, surfacing relevant articles, or uncovering key insights, Perigon gives you the tools to do it programmatically.
+
+Unlike traditional keyword-based search, Perigon's semantic search capabilities allow it to understand queries contextually and return relevant documents.
+
+This notebook demonstrates how to use Perigon's retrievers with LangChain for both news articles and Wikipedia content.
+
+## Setup
+
+### Installation
+
+Install the LangChain Perigon integration package:
+
+```python
+%pip install -qU langchain-perigon
+
+# and some deps for this notebook
+%pip install -qU langchain langchain-openai langchain-community
+```
+
+### Credentials
+
+You'll need a Perigon API key to use this integration. You can sign up at [Perigon.io](https://perigon.io/) to get your API key.
+
+```python
+import getpass
+import os
+
+if not os.environ.get("PERIGON_API_KEY"):
+    os.environ["PERIGON_API_KEY"] = getpass.getpass("Perigon API key:\n")
+```
+
+## Using ArticlesRetriever
+
+The ArticlesRetriever allows you to search through news articles using semantic search capabilities:
+
+### Basic Usage
+
+```python
+from langchain_perigon import ArticlesRetriever
+
+# Create a new instance of the ArticlesRetriever
+# PERIGON_API_KEY is set in the environment variables
+retriever = ArticlesRetriever()
+
+# Search for articles and save the results
+documents = retriever.invoke("artificial intelligence developments")
+
+# Print the results
+print(f"Found {len(documents)} articles")
+for doc in documents[:3]:  # Print first 3 results
+    print(f"Title: {doc.metadata.get('title', 'N/A')}")
+    print(f"URL: {doc.metadata.get('url', 'N/A')}")
+    print(f"Published: {doc.metadata.get('publishedAt', 'N/A')}")
+    print(f"Content: {doc.page_content[:200]}...")
+    print("-" * 80)
+```
+
+### Advanced Features with Filtering
+
+You can use advanced filtering options to narrow down your search results:
+
+```python
+from langchain_perigon import ArticlesRetriever, ArticlesFilter
+
+# Create retriever with custom parameters
+# PERIGON_API_KEY is automatically read from environment variables
+retriever = ArticlesRetriever(
+    k=10  # Number of results to return
+)
+
+# Define advanced filter options
+options: ArticlesFilter = {
+    "size": 10,
+    "showReprints": False,  # Exclude reprints
+    "filter": {
+        "country": "us",  # Only US articles
+        "category": "tech",  # Technology category
+        "source": ["techcrunch.com", "wired.com"]  # Specific sources
+    }
+}
+
+# Search with filters
+documents = retriever.invoke("machine learning breakthroughs", options=options)
+
+print(f"Found {len(documents)} filtered articles")
+for doc in documents[:3]:
+    print(f"Title: {doc.metadata.get('title', 'N/A')}")
+    print(f"Source: {doc.metadata.get('source', 'N/A')}")
+    print(f"Category: {doc.metadata.get('category', 'N/A')}")
+    print(f"Content: {doc.page_content[:150]}...")
+    print("-" * 80)
+```
+
+### Location-Based Filtering
+
+You can filter articles by geographic relevance:
+
+```python
+from langchain_perigon.types import ArticlesFilter
+from langchain_perigon import ArticlesRetriever
+
+retriever = ArticlesRetriever()
+
+# Filter by location
+location_options: ArticlesFilter = {
+    "size": 5,
+    "filter": {"country": "us", "state": "CA", "city": "San Francisco"},
+}
+
+documents = retriever.invoke("startup funding rounds", options=location_options)
+
+print(f"Found {len(documents)} San Francisco startup articles")
+for doc in documents:
+    print(f"Title: {doc.metadata.get('title', 'N/A')}")
+    print("-" * 60)
+```
+
+## Using WikipediaRetriever
+
+The WikipediaRetriever provides semantic search capabilities over Wikipedia content with rich metadata:
+
+### Basic Usage
+
+```python
+from langchain_perigon import WikipediaRetriever
+
+# Create a new instance of the WikipediaRetriever
+# PERIGON_API_KEY is automatically read from environment variables
+wiki_retriever = WikipediaRetriever()
+
+# Search for Wikipedia articles
+documents = wiki_retriever.invoke("quantum computing")
+
+# Print the results
+print(f"Found {len(documents)} Wikipedia articles")
+for doc in documents[:3]:
+    print(f"Title: {doc.metadata.get('title', 'N/A')}")
+    print(f"Pageviews: {doc.metadata.get('pageviews', 'N/A')}")
+    print(f"Wikidata ID: {doc.metadata.get('wikidataId', 'N/A')}")
+    print(f"Content: {doc.page_content[:200]}...")
+    print("-" * 80)
+```
+
+### Advanced Wikipedia Search
+
+You can filter Wikipedia results by popularity, categories, and other metadata:
+
+```python
+from langchain_perigon import WikipediaRetriever, WikipediaOptions
+
+# Create retriever with custom parameters
+# PERIGON_API_KEY is automatically read from environment variables
+wiki_retriever = WikipediaRetriever(k=5)
+
+# Define advanced filter options
+wiki_options: WikipediaOptions = {
+    "size": 5,
+    "pageviewsFrom": 100,  # Only popular pages with 100+ daily views
+    "filter": {
+        "wikidataInstanceOfLabel": ["academic discipline"],
+        "category": ["Computer science", "Physics"],
+    },
+}
+
+# Search with filters
+documents = wiki_retriever.invoke("machine learning", options=wiki_options)
+
+print(f"Found {len(documents)} academic Wikipedia articles")
+for doc in documents:
+    print(f"Title: {doc.metadata.get('title', 'N/A')}")
+    print(f"Daily pageviews: {doc.metadata.get('pageviews', 'N/A')}")
+    print(f"Instance of: {doc.metadata.get('wikidataInstanceOf', 'N/A')}")
+    print(f"Wiki code: {doc.metadata.get('wikiCode', 'N/A')}")
+    print("-" * 80)
+```
+
+### Time-Based Wikipedia Filtering
+
+Filter Wikipedia articles by revision dates:
+
+```python
+from langchain_perigon import WikipediaRetriever, WikipediaOptions
+
+wiki_retriever = WikipediaRetriever()
+
+# Filter by recent revisions
+recent_options: WikipediaOptions = {
+    "size": 10,
+    "wiki_revision_from": "2025-09-22T00:00:00.000",  # Recently updated articles
+    "filter": {"with_pageviews": True},  # Only articles with pageview data
+}
+
+documents = wiki_retriever.invoke("artificial intelligence", options=recent_options)
+
+print(f"Found {len(documents)} recently updated AI articles")
+for doc in documents:
+    print(f"Title: {doc.metadata.get('title', 'N/A')}")
+    print(f"Last revision: {doc.metadata.get('wikiRevisionTs', 'N/A')}")
+    print(f"Pageviews: {doc.metadata.get('pageviews', 'N/A')}")
+    print("-" * 60)
+
+```
+
+## Async Usage
+
+Both retrievers support asynchronous operations for better performance:
+
+```python
+import asyncio
+from langchain_perigon import (
+    ArticlesRetriever,
+    WikipediaRetriever,
+    ArticlesFilter,
+    WikipediaOptions,
+)
+
+
+async def search_both():
+    # Initialize retrievers
+    # PERIGON_API_KEY is automatically read from environment variables
+    articles_retriever = ArticlesRetriever()
+    wiki_retriever = WikipediaRetriever()
+
+    # Define options
+    articles_options: ArticlesFilter = {
+        "size": 3,
+        "filter": {"country": "us", "category": "tech"},
+    }
+
+    wiki_options: WikipediaOptions = {"size": 3, "pageviewsFrom": 50}
+
+    # Perform async searches
+    articles_task = articles_retriever.ainvoke(
+        "climate change", options=articles_options
+    )
+    wiki_task = wiki_retriever.ainvoke("climate change", options=wiki_options)
+
+    # Wait for both to complete
+    articles, wiki_docs = await asyncio.gather(articles_task, wiki_task)
+
+    return articles, wiki_docs
+
+
+# Run async search
+articles, wiki_docs = asyncio.run(search_both())
+
+print(f"Found {len(articles)} news articles and {len(wiki_docs)} Wikipedia articles")
+```
+
+## Integration with LangChain
+
+### Combining Both Retrievers
+
+You can combine both retrievers for comprehensive search across news and encyclopedic content:
+
+```python
+from langchain.retrievers import EnsembleRetriever
+
+from langchain_perigon import ArticlesRetriever, WikipediaRetriever
+
+# Create both retrievers
+# PERIGON_API_KEY is automatically read from environment variables
+news_retriever = ArticlesRetriever()
+wiki_retriever = WikipediaRetriever()
+
+# Combine them with different weights
+ensemble_retriever = EnsembleRetriever(
+    retrievers=[news_retriever, wiki_retriever],
+    weights=[0.6, 0.4],  # Favor news articles slightly over Wikipedia
+)
+
+# Use combined retriever
+documents = ensemble_retriever.get_relevant_documents("artificial intelligence ethics")
+
+print(f"Found {len(documents)} combined results")
+for i, doc in enumerate(documents[:5]):
+    source_type = "News" if "url" in doc.metadata else "Wikipedia"
+    print(f"{i+1}. [{source_type}] {doc.metadata.get('title', 'N/A')}")
+    print(f"   Content: {doc.page_content[:100]}...")
+    print()
+```
+
+## API Reference
+
+For detailed documentation of all Perigon API features and configurations, visit the [Perigon API documentation](https://dev.perigon.io/docs).
