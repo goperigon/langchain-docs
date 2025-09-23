@@ -23,7 +23,7 @@ Install the LangChain Perigon integration package:
 
 ### Credentials
 
-You'll need a Perigon API key to use this integration. You can sign up at [Perigon.io](https://perigon.io/) to get your API key.
+You'll need a Perigon API key to use this integration. Sign up at [Perigon.io](https://perigon.io/) for your API key.
 
 ```python
 import getpass
@@ -43,20 +43,29 @@ The ArticlesRetriever allows you to search through news articles using semantic 
 from langchain_perigon import ArticlesRetriever
 
 # Create a new instance of the ArticlesRetriever
-# PERIGON_API_KEY is set in the environment variables
+# PERIGON_API_KEY is automatically read from environment variables
 retriever = ArticlesRetriever()
 
-# Search for articles and save the results
-documents = retriever.invoke("artificial intelligence developments")
+try:
+    # Search for articles using semantic search
+    documents = retriever.invoke("artificial intelligence developments")
 
-# Print the results
-print(f"Found {len(documents)} articles")
-for doc in documents[:3]:  # Print first 3 results
-    print(f"Title: {doc.metadata.get('title', 'N/A')}")
-    print(f"URL: {doc.metadata.get('url', 'N/A')}")
-    print(f"Published: {doc.metadata.get('publishedAt', 'N/A')}")
-    print(f"Content: {doc.page_content[:200]}...")
-    print("-" * 80)
+    # Check if we got results
+    if not documents:
+        print("No articles found for the given query.")
+    else:
+        print(f"Found {len(documents)} articles")
+
+        # Display first 3 results with metadata
+        for doc in documents[:3]:
+            # Safely extract metadata with fallbacks
+            print(f"Title: {doc.metadata.get('title', 'N/A')}")
+            print(f"URL: {doc.metadata.get('url', 'N/A')}")
+            print(f"Published: {doc.metadata.get('publishedAt', 'N/A')}")
+            print(f"Content: {doc.page_content[:200]}...")
+            print("-" * 80)
+except Exception as e:
+    print(f"Error retrieving articles: {e}")
 ```
 
 ### Advanced Features with Filtering
@@ -83,16 +92,25 @@ options: ArticlesFilter = {
     }
 }
 
-# Search with filters
-documents = retriever.invoke("machine learning breakthroughs", options=options)
+try:
+    # Search with advanced filters applied
+    documents = retriever.invoke("machine learning breakthroughs", options=options)
 
-print(f"Found {len(documents)} filtered articles")
-for doc in documents[:3]:
-    print(f"Title: {doc.metadata.get('title', 'N/A')}")
-    print(f"Source: {doc.metadata.get('source', 'N/A')}")
-    print(f"Category: {doc.metadata.get('category', 'N/A')}")
-    print(f"Content: {doc.page_content[:150]}...")
-    print("-" * 80)
+    if not documents:
+        print("No articles found matching the filter criteria.")
+    else:
+        print(f"Found {len(documents)} filtered articles")
+
+        # Display results with relevant metadata
+        for doc in documents[:3]:
+            print(f"Title: {doc.metadata.get('title', 'N/A')}")
+            print(f"Source: {doc.metadata.get('source', 'N/A')}")
+            print(f"Category: {doc.metadata.get('category', 'N/A')}")
+            print(f"Content: {doc.page_content[:150]}...")
+            print("-" * 80)
+
+except Exception as e:
+    print(f"Error retrieving filtered articles: {e}")
 ```
 
 ### Location-Based Filtering
@@ -132,17 +150,26 @@ from langchain_perigon import WikipediaRetriever
 # PERIGON_API_KEY is automatically read from environment variables
 wiki_retriever = WikipediaRetriever()
 
-# Search for Wikipedia articles
-documents = wiki_retriever.invoke("quantum computing")
+try:
+    # Search for Wikipedia articles using semantic search
+    documents = wiki_retriever.invoke("quantum computing")
 
-# Print the results
-print(f"Found {len(documents)} Wikipedia articles")
-for doc in documents[:3]:
-    print(f"Title: {doc.metadata.get('title', 'N/A')}")
-    print(f"Pageviews: {doc.metadata.get('pageviews', 'N/A')}")
-    print(f"Wikidata ID: {doc.metadata.get('wikidataId', 'N/A')}")
-    print(f"Content: {doc.page_content[:200]}...")
-    print("-" * 80)
+    # Validate results before processing
+    if not documents:
+        print("No Wikipedia articles found for the given query.")
+    else:
+        print(f"Found {len(documents)} Wikipedia articles")
+
+        # Display first 3 results with rich metadata
+        for doc in documents[:3]:
+            # Extract Wikipedia-specific metadata safely
+            print(f"Title: {doc.metadata.get('title', 'N/A')}")
+            print(f"Pageviews: {doc.metadata.get('pageviews', 'N/A')}")
+            print(f"Wikidata ID: {doc.metadata.get('wikidataId', 'N/A')}")
+            print(f"Content: {doc.page_content[:200]}...")
+            print("-" * 80)
+except Exception as e:
+    print(f"Error retrieving Wikipedia articles: {e}")
 ```
 
 ### Advanced Wikipedia Search
@@ -220,35 +247,77 @@ from langchain_perigon import (
 
 
 async def search_both():
-    # Initialize retrievers
-    # PERIGON_API_KEY is automatically read from environment variables
+    """Perform concurrent searches across news articles and Wikipedia.
+
+    Returns:
+        tuple: (news_articles, wikipedia_docs) - Results from both retrievers
+
+    Raises:
+        Exception: If either retriever fails or API errors occur
+    """
+    # Initialize retrievers with automatic API key detection
     articles_retriever = ArticlesRetriever()
     wiki_retriever = WikipediaRetriever()
 
-    # Define options
+    # Configure search options for targeted results
     articles_options: ArticlesFilter = {
-        "size": 3,
-        "filter": {"country": "us", "category": "tech"},
+        "size": 3,  # Limit to 3 articles for faster response
+        "filter": {
+            "country": "us",      # US-based news sources
+            "category": "tech",   # Technology category only
+        },
     }
 
-    wiki_options: WikipediaOptions = {"size": 3, "pageviewsFrom": 50}
+    # Filter Wikipedia results by popularity (pageviews)
+    wiki_options: WikipediaOptions = {
+        "size": 3,           # Limit to 3 articles
+        "pageviewsFrom": 50  # Only articles with 50+ daily views
+    }
 
-    # Perform async searches
-    articles_task = articles_retriever.ainvoke(
-        "climate change", options=articles_options
-    )
-    wiki_task = wiki_retriever.ainvoke("climate change", options=wiki_options)
+    try:
+        # Perform concurrent async searches for better performance
+        articles_task = articles_retriever.ainvoke(
+            "climate change", options=articles_options
+        )
+        wiki_task = wiki_retriever.ainvoke(
+            "climate change", options=wiki_options
+        )
 
-    # Wait for both to complete
-    articles, wiki_docs = await asyncio.gather(articles_task, wiki_task)
+        # Wait for both searches to complete simultaneously
+        articles, wiki_docs = await asyncio.gather(
+            articles_task, wiki_task, return_exceptions=True
+        )
 
-    return articles, wiki_docs
+        # Handle potential exceptions from either retriever
+        if isinstance(articles, Exception):
+            print(f"Articles retrieval failed: {articles}")
+            articles = []
+        if isinstance(wiki_docs, Exception):
+            print(f"Wikipedia retrieval failed: {wiki_docs}")
+            wiki_docs = []
+
+        return articles, wiki_docs
+
+    except Exception as e:
+        print(f"Error in concurrent search: {e}")
+        return [], []
 
 
-# Run async search
-articles, wiki_docs = asyncio.run(search_both())
+# Run async search with error handling
+try:
+    articles, wiki_docs = asyncio.run(search_both())
 
-print(f"Found {len(articles)} news articles and {len(wiki_docs)} Wikipedia articles")
+    # Display results summary
+    print(f"Found {len(articles)} news articles and {len(wiki_docs)} Wikipedia articles")
+
+    # Show sample results if available
+    if articles:
+        print(f"Sample article: {articles[0].metadata.get('title', 'N/A')}")
+    if wiki_docs:
+        print(f"Sample Wikipedia: {wiki_docs[0].metadata.get('title', 'N/A')}")
+
+except Exception as e:
+    print(f"Async search failed: {e}")
 ```
 
 ## Integration with LangChain
@@ -273,15 +342,25 @@ ensemble_retriever = EnsembleRetriever(
     weights=[0.6, 0.4],  # Favor news articles slightly over Wikipedia
 )
 
-# Use combined retriever
-documents = ensemble_retriever.get_relevant_documents("artificial intelligence ethics")
+try:
+    # Use combined retriever for comprehensive search
+    documents = ensemble_retriever.get_relevant_documents("artificial intelligence ethics")
 
-print(f"Found {len(documents)} combined results")
-for i, doc in enumerate(documents[:5]):
-    source_type = "News" if "url" in doc.metadata else "Wikipedia"
-    print(f"{i+1}. [{source_type}] {doc.metadata.get('title', 'N/A')}")
-    print(f"   Content: {doc.page_content[:100]}...")
-    print()
+    if not documents:
+        print("No results found from either retriever.")
+    else:
+        print(f"Found {len(documents)} combined results")
+
+        # Display top 5 results with source identification
+        for i, doc in enumerate(documents[:5]):
+            # Determine source type based on metadata
+            source_type = "News" if "url" in doc.metadata else "Wikipedia"
+            print(f"{i+1}. [{source_type}] {doc.metadata.get('title', 'N/A')}")
+            print(f"   Content: {doc.page_content[:100]}...")
+            print()
+
+except Exception as e:
+    print(f"Error with ensemble retriever: {e}")
 ```
 
 ## API Reference
