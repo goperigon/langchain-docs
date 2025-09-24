@@ -320,49 +320,6 @@ except Exception as e:
     print(f"Async search failed: {e}")
 ```
 
-## Integration with LangChain
-
-### Combining Both Retrievers
-
-You can combine both retrievers for comprehensive search across news and encyclopedic content:
-
-```python
-from langchain.retrievers import EnsembleRetriever
-
-from langchain_perigon import ArticlesRetriever, WikipediaRetriever
-
-# Create both retrievers
-# PERIGON_API_KEY is automatically read from environment variables
-news_retriever = ArticlesRetriever()
-wiki_retriever = WikipediaRetriever()
-
-# Combine them with different weights
-ensemble_retriever = EnsembleRetriever(
-    retrievers=[news_retriever, wiki_retriever],
-    weights=[0.6, 0.4],  # Favor news articles slightly over Wikipedia
-)
-
-try:
-    # Use combined retriever for comprehensive search
-    documents = ensemble_retriever.get_relevant_documents("artificial intelligence ethics")
-
-    if not documents:
-        print("No results found from either retriever.")
-    else:
-        print(f"Found {len(documents)} combined results")
-
-        # Display top 5 results with source identification
-        for i, doc in enumerate(documents[:5]):
-            # Determine source type based on metadata
-            source_type = "News" if "url" in doc.metadata else "Wikipedia"
-            print(f"{i+1}. [{source_type}] {doc.metadata.get('title', 'N/A')}")
-            print(f"   Content: {doc.page_content[:100]}...")
-            print()
-
-except Exception as e:
-    print(f"Error with ensemble retriever: {e}")
-```
-
 ## API Reference
 
 For detailed documentation of all Perigon API features and configurations, visit the [Perigon API documentation](https://dev.perigon.io/docs).
